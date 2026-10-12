@@ -1,0 +1,398 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                   String             @id @default(auto()) @map("_id") @db.ObjectId
+  userName             String
+  email                String             @unique
+  password             String
+  phone                String?
+  gender               Gender             @default(MALE)
+  profileImage         String?
+  dob                  String?
+  serviceArea          String?
+  about                String?
+  address              String?
+  idFront              String?
+  idBack               String?
+  fcmToken             String?
+  isSubscribed         Boolean?           @default(false)
+  subscriptionId       String?
+  paypalSubscriptionId String?
+  points               Float              @default(0)
+  stripeCustomerId     String
+  isSetup              Boolean            @default(false)
+  avgRating            Float              @default(0)
+  totalReview          Int                @default(0)
+  role                 UserRole           @default(USER)
+  status               UserStatus         @default(Pending)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  userLocation         UserLocation[]
+  Service              Service[]
+  givenReviews         Review[]           @relation("Reviewer")
+  receivedReviews      Review[]           @relation("Provider")
+  customerBookings     Booking[]          @relation("Customer")
+  providerBookings     Booking[]          @relation("Provider")
+  sender               Room[]             @relation("user1Relation")
+  receiver             Room[]             @relation("user2Relation")
+  reviewPro            UserReview[]       @relation("ReviewProvider")
+  reviewUser           UserReview[]       @relation("getReviewUser")
+  availabilities       Availability[]
+  restrictedProviders  Restrict[]         @relation("UserRestricts")
+  restrictedByUsers    Restrict[]         @relation("ProviderRestrictedBy")
+  favouriteProviders   Favourite[]        @relation("UserFavourites")
+  favouriteByUser      Favourite[]        @relation("FavouriteByUser")
+  userSubscriptions    UserSubscription[]
+
+  @@map("users")
+}
+
+model PendingUser {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userName  String
+  email     String   @unique
+  phone     String
+  role      UserRole @default(USER)
+  fcmToken  String?
+  password  String
+  otpCode   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("pendingUsers")
+}
+
+model UserLocation {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String?  @db.ObjectId
+  latitude  Float
+  longitude Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_locations")
+}
+
+model Otp {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  otpCode   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("otps")
+}
+
+model Category {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  categoryName String        @unique
+  mediaUrl     String
+  charge       Int
+  hodsCharge   Int
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  SubCategory  SubCategory[]
+
+  @@map("categories")
+}
+
+model SubCategory {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  categoryId  String    @db.ObjectId
+  subCatName  String    @unique
+  overview    String
+  mediaUrl    String
+  charge      Int
+  hodsCharge  Int
+  options     String[]
+  avgRating   Float     @default(0)
+  totalReview Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  category    Category? @relation(fields: [categoryId], references: [id])
+  Service     Service[]
+  Booking     Booking[]
+
+  @@map("subCategories")
+}
+
+model Service {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  providerId  String       @db.ObjectId
+  subCatId    String       @db.ObjectId
+  mediaUrl    String
+  fee         Float
+  title       String
+  avability   String[]
+  duration    String
+  address     String
+  status      Boolean      @default(false)
+  description String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  provider    User?        @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  subCategory SubCategory? @relation(fields: [subCatId], references: [id])
+  Booking     Booking[]
+
+  @@map("services")
+}
+
+model Booking {
+  id                 String        @id @default(auto()) @map("_id") @db.ObjectId
+  providerId         String        @db.ObjectId
+  customerId         String        @db.ObjectId
+  subCatId           String        @db.ObjectId
+  serviceId          String        @db.ObjectId
+  date               DateTime
+  fee                Float
+  totalFee           Float
+  requested          Int           @default(0)
+  requestedCharge    Float         @default(0)
+  time               String
+  cancelReason       String?
+  tip                Int           @default(0)
+  charge             Float
+  requirement        String
+  paymentMethodId    String?
+  paymentIntentId    String?
+  paypalOrderId      String?
+  reviewedByUser     Boolean       @default(false)
+  reviewdByProvider  Boolean       @default(false)
+  isPaymentConfirmed Boolean
+  isPaymentShared    Boolean       @default(false)
+  status             BookingStatus @default(ACTIVE)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  customer           User          @relation("Customer", fields: [customerId], references: [id], onDelete: Cascade)
+  provider           User          @relation("Provider", fields: [providerId], references: [id], onDelete: Cascade)
+  subCategory        SubCategory   @relation(fields: [subCatId], references: [id])
+  service            Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  reviews            Review[]
+  userReviews        UserReview[]
+
+  @@map("bookings")
+}
+
+model Review {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  providerId String   @db.ObjectId
+  bookingId  String   @db.ObjectId
+  subCatId   String
+  comment    String
+  rating     Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  reviewer User    @relation("Reviewer", fields: [userId], references: [id], onDelete: Cascade)
+  provider User    @relation("Provider", fields: [providerId], references: [id], onDelete: Cascade)
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+model UserReview {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  bookingId  String   @db.ObjectId
+  providerId String   @db.ObjectId
+  comment    String
+  rating     Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  reviewer User    @relation("ReviewProvider", fields: [userId], references: [id], onDelete: Cascade)
+  provider User    @relation("getReviewUser", fields: [providerId], references: [id], onDelete: Cascade)
+  booking  Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("userReviews")
+}
+
+model Favourite {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  providerId String   @db.ObjectId
+  userId     String   @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation("UserFavourites", fields: [userId], references: [id])
+  provider   User     @relation("FavouriteByUser", fields: [providerId], references: [id])
+
+  @@map("favourites")
+}
+
+model Restrict {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  providerId String   @db.ObjectId
+  userId     String   @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  restricter User     @relation("UserRestricts", fields: [userId], references: [id], onDelete: Cascade)
+  provider   User     @relation("ProviderRestrictedBy", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("restricts")
+}
+
+model Subscription {
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  title                 String                @unique
+  subscriptionTitleType SubscriptionTitleType @unique
+  priceId               String                @unique
+  productId             String                @unique
+  features              Json
+  type                  SubscriptionType
+  interval              String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  userSubscription      UserSubscription[]
+
+  @@map("subscription")
+}
+
+model PaypalSubscription {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  planId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("paypalSubscription")
+}
+
+model UserSubscription {
+  id                    String                @id @default(auto()) @map("_id") @db.ObjectId
+  subscriptionTitleType SubscriptionTitleType
+  userId                String                @db.ObjectId
+  subscriptionId        String                @db.ObjectId
+  priceId               String
+  subscriptionPayId     String
+  features              Json
+  status                PaymentStatus         @default(ACTIVE)
+  subscripotion         Subscription?         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  user                  User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@unique([userId, subscriptionId])
+  @@unique([userId, priceId])
+  @@map("userSubscription")
+}
+
+model Room {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  senderId   String?  @db.ObjectId
+  receiverId String?  @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user1      User?    @relation("user1Relation", fields: [senderId], references: [id], onDelete: Cascade)
+  user2      User?    @relation("user2Relation", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  message Message[]
+
+  @@unique([senderId, receiverId])
+  @@map("rooms")
+}
+
+model Message {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  roomId    String   @db.ObjectId
+  user1Id   String   @db.ObjectId
+  user2Id   String   @db.ObjectId
+  content   String?
+  fileUrl   String[]
+  user1Read Boolean  @default(false)
+  user2Read Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Notification {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  receiverId String?  @db.ObjectId
+  senderId   String?  @db.ObjectId
+  title      String?
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("notifications")
+}
+
+model Availability {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  providerId String          @db.ObjectId
+  dayOfWeek  Int
+  slots      AvailableSlot[]
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  user       User            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("availabilities")
+}
+
+model AvailableSlot {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  availabilityId String       @db.ObjectId
+  startTime      String
+  endTime        String
+  availability   Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("availableSlots")
+}
+
+enum UserStatus {
+  Pending
+  Active
+  Blocked
+}
+
+enum BookingStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum PaymentStatus {
+  ACTIVE
+  DEACTIVE
+}
+
+enum SubscriptionTitleType {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionType {
+  FREE
+  ONETIME
+  SUBSCRIPTION
+  MONTHLY
+  YEARLY
+}
+
+enum UserRole {
+  ADMIN
+  PROVIDER
+  USER
+}
